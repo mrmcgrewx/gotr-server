@@ -1,0 +1,454 @@
+{
+  "inventoryTalismans": [],
+  "activeGuardians": [
+    {
+      "id": 43702,
+      "name": "Guardian of Water",
+      "worldX": 3623,
+      "worldY": 9500,
+      "plane": 0,
+      "sceneX": 55,
+      "sceneY": 76,
+      "regionId": 14484,
+      "minimapX": 723,
+      "minimapY": 32,
+      "inMinimap": true,
+      "canvasX": 530,
+      "canvasY": 120,
+      "canvasBox": {
+        "x": 514,
+        "y": 110,
+        "w": 33,
+        "h": 20
+      },
+      "inCanvas": true,
+      "distToPlayer": 13
+    },
+    {
+      "id": 43707,
+      "name": "Guardian of Death",
+      "worldX": 3606,
+      "worldY": 9505,
+      "plane": 0,
+      "sceneX": 38,
+      "sceneY": 81,
+      "regionId": 14484,
+      "minimapX": 655,
+      "minimapY": 12,
+      "inMinimap": true,
+      "canvasX": 298,
+      "canvasY": 73,
+      "canvasBox": {
+        "x": 284,
+        "y": 65,
+        "w": 28,
+        "h": 17
+      },
+      "inCanvas": true,
+      "distToPlayer": 18
+    }
+  ],
+  "cellTiles": [],
+  "greatGuardian": {
+    "id": 11403,
+    "name": "The Great Guardian",
+    "worldX": 3613,
+    "worldY": 9501,
+    "plane": 0,
+    "sceneX": 45,
+    "sceneY": 77,
+    "regionId": 14484,
+    "minimapX": 683,
+    "minimapY": 28,
+    "inMinimap": true,
+    "canvasX": 423,
+    "canvasY": 25,
+    "canvasBox": {
+      "x": 396,
+      "y": -26,
+      "w": 55,
+      "h": 103
+    },
+    "inCanvas": true,
+    "distToPlayer": 14
+  },
+  "unchargedCellTable": {
+    "id": 43732,
+    "name": "Uncharged cells",
+    "worldX": 3618,
+    "worldY": 9488,
+    "plane": 0,
+    "sceneX": 50,
+    "sceneY": 64,
+    "regionId": 14484,
+    "minimapX": 703,
+    "minimapY": 80,
+    "inMinimap": true,
+    "canvasX": 481,
+    "canvasY": 279,
+    "canvasBox": {
+      "x": 462,
+      "y": 271,
+      "w": 38,
+      "h": 16
+    },
+    "inCanvas": true,
+    "distToPlayer": 5
+  },
+  "depositPool": {
+    "id": 43696,
+    "name": "Deposit Pool",
+    "worldX": 3609,
+    "worldY": 9487,
+    "plane": 0,
+    "sceneX": 41,
+    "sceneY": 63,
+    "regionId": 14484,
+    "minimapX": 667,
+    "minimapY": 84,
+    "inMinimap": true,
+    "canvasX": 309,
+    "canvasY": 295,
+    "canvasBox": {
+      "x": 299,
+      "y": 287,
+      "w": 20,
+      "h": 17
+    },
+    "inCanvas": true,
+    "distToPlayer": 4
+  },
+  "catalyticEssencePile": {
+    "id": 43723,
+    "name": "Essence pile (catalytic)",
+    "worldX": 3611,
+    "worldY": 9490,
+    "plane": 0,
+    "sceneX": 43,
+    "sceneY": 66,
+    "regionId": 14484,
+    "minimapX": 675,
+    "minimapY": 72,
+    "inMinimap": true,
+    "canvasX": 356,
+    "canvasY": 240,
+    "canvasBox": {
+      "x": 339,
+      "y": 226,
+      "w": 35,
+      "h": 29
+    },
+    "inCanvas": true,
+    "distToPlayer": 3
+  },
+  "elementalEssencePile": {
+    "id": 43722,
+    "name": "Essence pile (elemental)",
+    "worldX": 3618,
+    "worldY": 9490,
+    "plane": 0,
+    "sceneX": 50,
+    "sceneY": 66,
+    "regionId": 14484,
+    "minimapX": 703,
+    "minimapY": 72,
+    "inMinimap": true,
+    "canvasX": 476,
+    "canvasY": 240,
+    "canvasBox": {
+      "x": 458,
+      "y": 226,
+      "w": 37,
+      "h": 29
+    },
+    "inCanvas": true,
+    "distToPlayer": 5
+  },
+  "barrier": {
+    "id": 43849,
+    "name": "Barrier",
+    "worldX": 3615,
+    "worldY": 9483,
+    "plane": 0,
+    "sceneX": 47,
+    "sceneY": 59,
+    "regionId": 14484,
+    "minimapX": 691,
+    "minimapY": 100,
+    "inMinimap": true,
+    "canvasX": 423,
+    "canvasY": 370,
+    "canvasBox": {
+      "x": 372,
+      "y": 360,
+      "w": 102,
+      "h": 20
+    },
+    "inCanvas": true,
+    "distToPlayer": 4
+  },
+  "isInMinigame": true,
+  "hasAnyRunes": false,
+  "hasAnyGuardianEssence": true,
+  "seq": 2300,
+  "ts": 1757253922635,
+  "loggedIn": true,
+  "inv": {
+    "fragments": 121,
+    "unchargedCells": 0,
+    "essence": 25,
+    "colossalPouch": {
+      "itemId": 26784,
+      "name": "Colossal pouch",
+      "qty": 1,
+      "canvasX": 584,
+      "canvasY": 255,
+      "w": 36,
+      "h": 32
+    },
+    "essenceSlots": [
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 255,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 584,
+        "canvasY": 291,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 626,
+        "canvasY": 291,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 668,
+        "canvasY": 291,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 291,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 584,
+        "canvasY": 327,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 626,
+        "canvasY": 327,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 668,
+        "canvasY": 327,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 327,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 584,
+        "canvasY": 363,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 626,
+        "canvasY": 363,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 668,
+        "canvasY": 363,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 363,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 584,
+        "canvasY": 399,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 626,
+        "canvasY": 399,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 668,
+        "canvasY": 399,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 399,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 584,
+        "canvasY": 435,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 626,
+        "canvasY": 435,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 668,
+        "canvasY": 435,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 435,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 584,
+        "canvasY": 471,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 626,
+        "canvasY": 471,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 668,
+        "canvasY": 471,
+        "w": 36,
+        "h": 32
+      },
+      {
+        "itemId": 26879,
+        "name": "Guardian essence",
+        "qty": 1,
+        "canvasX": 710,
+        "canvasY": 471,
+        "w": 36,
+        "h": 32
+      }
+    ],
+    "talismans": [],
+    "emptySlots": 0
+  },
+  "canvasW": 765,
+  "canvasH": 587,
+  "canvasScreenX": 6,
+  "canvasScreenY": 83,
+  "player": {
+    "ts": 1757253922635,
+    "worldX": 3613,
+    "worldY": 9487,
+    "plane": 0,
+    "sceneX": 45,
+    "sceneY": 63,
+    "moving": false,
+    "animationId": -1,
+    "action": "idle"
+  }
+}
