@@ -16,8 +16,10 @@ public class GotrInvSummary extends InvSummary {
     int fragments;           // Guardian fragments (total)
     int unchargedCells;      // Uncharged cells (total)
     int essence;             // Guardian essence (total)
+    int pearls;              // Abyssal pearls (total)
 
     InvSlotPoint colossalPouch;       // where to click to empty/fill
+    boolean pouchDegraded;
     List<InvSlotPoint> essenceSlots;  // every slot containing guardian essence
     List<InvSlotPoint> talismans;     // any talismans present with their slots
 }

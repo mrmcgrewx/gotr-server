@@ -16,11 +16,11 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.server.InvSummary;
-import net.runelite.client.server.Payload;
-import net.runelite.client.server.PlayerSnapshot;
-import net.runelite.client.server.SimpleHttpServer;
+import net.runelite.client.server.*;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.api.gameval.ObjectID;
+import net.runelite.api.gameval.NpcID;
+
 import javax.inject.Inject;
 import java.awt.*;
 import java.time.Instant;
@@ -74,6 +74,8 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private static final Set<Integer> GUARDIAN_IDS = GuardianInfo.ALL.stream().mapToInt(x -> x.gameObjectId).boxed().collect(Collectors.toSet());
     private static final Set<Integer> RUNE_IDS = GuardianInfo.ALL.stream().mapToInt(x -> x.runeId).boxed().collect(Collectors.toSet());
     private static final Set<Integer> TALISMAN_IDS = GuardianInfo.ALL.stream().mapToInt(x -> x.talismanId).boxed().collect(Collectors.toSet());
+    private static final Set<Integer> ALTAR_IDS = GuardianInfo.ALL.stream().mapToInt(x -> x.altarGameObjectId).boxed().collect(Collectors.toSet());
+    private static final Set<Integer> ALTAR_PORTAL_IDS = GuardianInfo.ALL.stream().mapToInt(x -> x.altarPortalGameObjectId).boxed().collect(Collectors.toSet());
 
     private static final Set<Integer> CHARGED_CELL_ITEM_IDS = CellTileInfo.ALL.stream().mapToInt(x -> x.itemId).boxed().collect(Collectors.toSet());
     private static final Set<Integer> CELL_TILE_IDS = CellTileInfo.ALL.stream().mapToInt(x -> x.groundObjectId).boxed().collect(Collectors.toSet());
@@ -111,16 +113,12 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     private final static int PORTAL_SPRITE_ID = 4368;
 
-    private static final int PORTAL_ID = 43729;
-
-    private static final int BARRIER_IDLE_ID = 43700;
-    private static final int BARRIER_IDLE_FULL_ID = 53263;
-    private static final int BARRIER_ONGOING = 43849;
-
     private static final String REWARD_POINT_REGEX = "Total elemental energy:[^>]+>([\\d,]+).*Total catalytic energy:[^>]+>([\\d,]+).";
     private static final Pattern REWARD_POINT_PATTERN = Pattern.compile(REWARD_POINT_REGEX);
     private static final String CHECK_POINT_REGEX = "You have (\\d+) catalytic energy and (\\d+) elemental energy";
     private static final Pattern CHECK_POINT_PATTERN = Pattern.compile(CHECK_POINT_REGEX);
+
+    private static final String POUCH_DECAYED_MESSAGE = "Your pouch has decayed through use.";
 
     private static final int DIALOG_WIDGET_GROUP = 229;
     private static final int DIALOG_WIDGET_MESSAGE = 1;
@@ -137,7 +135,15 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     @Getter(AccessLevel.PACKAGE)
     private final Set<GroundObject> cellTiles = new HashSet<>();
     @Getter(AccessLevel.PACKAGE)
+    private final Set<GameObject> hugeGuardians = new HashSet<>();
+    @Getter(AccessLevel.PACKAGE)
+    private final Set<GameObject> largeGuardians = new HashSet<>();
+
+    @Getter(AccessLevel.PACKAGE)
     private NPC greatGuardian;
+    @Getter(AccessLevel.PACKAGE)
+    private NPC apprentice;
+
     @Getter(AccessLevel.PACKAGE)
     private GameObject unchargedCellTable;
     @Getter(AccessLevel.PACKAGE)
@@ -149,7 +155,22 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     @Getter(AccessLevel.PACKAGE)
     private GameObject portal;
     @Getter(AccessLevel.PACKAGE)
+    private GameObject returnPortal;
+    @Getter(AccessLevel.PACKAGE)
+    private GameObject workbench;
+
+    @Getter(AccessLevel.PACKAGE)
     private TileObject barrier;
+    @Getter(AccessLevel.PACKAGE)
+    private TileObject rubbleTop;
+    @Getter(AccessLevel.PACKAGE)
+    private TileObject rubbleBottom;
+
+    @Getter(AccessLevel.PACKAGE)
+    private GameObject currentAltar;
+    @Getter(AccessLevel.PACKAGE)
+    private GameObject altarPortal;
+
     @Getter(AccessLevel.PACKAGE)
     private WorldPoint lastPlayerWp;
 
@@ -197,6 +218,16 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     @Getter(AccessLevel.PACKAGE)
     private int lastRewardUsage;
+
+    @Getter(AccessLevel.PACKAGE)
+    private List<Widget> bankTiles = new ArrayList<>();
+    @Getter(AccessLevel.PACKAGE)
+    private GameObject bankChest;
+    @Getter(AccessLevel.PACKAGE)
+    private Widget bankCloseButton;
+    @Getter(AccessLevel.PACKAGE)
+    private Widget bankSlotFirst;
+
 
     private boolean hasNotifiedGameStart = true;
     private boolean hasNotifiedFirstRift = true;
@@ -332,6 +363,28 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             }
         }
 
+        if (BankWidget.isBankLoginVisible(client)) {
+            log.info("Bank login visible");
+            bankTiles = BankWidget.getKeyWidgets(client, config.pin());
+        } else {
+            bankTiles = null;
+        }
+
+        if (BankWidget.isBankVisible(client)) {
+            log.info("Bank is visible");
+            bankCloseButton = BankWidget.getCloseButton(client);
+            if (bankCloseButton != null) {
+                log.info("Identified close button");
+            }
+            bankSlotFirst = BankWidget.getFirstSlot(client);
+            if (bankSlotFirst != null) {
+                log.info("Identified First slot");
+            }
+        } else {
+            bankCloseButton = null;
+            bankSlotFirst = null;
+        }
+
         Widget elementalRuneWidget = client.getWidget(ELEMENTAL_RUNE_WIDGET_ID);
         Widget catalyticRuneWidget = client.getWidget(CATALYTIC_RUNE_WIDGET_ID);
         Widget guardianCountWidget = client.getWidget(GUARDIAN_COUNT_WIDGET_ID);
@@ -352,7 +405,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             Matcher matcher = pattern.matcher(text);
             if (matcher.find()) {
                 guardianEnergy = Integer.parseInt(matcher.group(1));
-
             }
         } else {
             guardianEnergy = -1;
@@ -438,6 +490,22 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             guardians.add(gameObject);
         }
 
+        if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_3) {
+            hugeGuardians.add(gameObject);
+        }
+
+        if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_2) {
+            largeGuardians.add(gameObject);
+        }
+
+        if (ALTAR_IDS.contains(event.getGameObject().getId())) {
+            currentAltar = gameObject;
+        }
+
+        if (ALTAR_PORTAL_IDS.contains(event.getGameObject().getId())) {
+            altarPortal = gameObject;
+        }
+
         if (gameObject.getId() == UNCHARGED_CELL_GAMEOBJECT_ID) {
             unchargedCellTable = gameObject;
         }
@@ -454,7 +522,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             catalyticEssencePile = gameObject;
         }
 
-        if (gameObject.getId() == PORTAL_ID) {
+        if (gameObject.getId() == ObjectID.GOTR_AGILITY_PORTAL_TOP) {
             portal = gameObject;
             if (shouldNotifyThatPortalSpawned()) {
                 // The hint arrow is cleared under the following circumstances:
@@ -465,16 +533,50 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             }
         }
 
+        if (gameObject.getId() == ObjectID.GOTR_AGILITY_PORTAL_BOTTOM_PARENT) {
+            returnPortal = gameObject;
+        }
+
         if (isBarrier(gameObject.getId())) {
             barrier = gameObject;
+        }
+
+        if (gameObject.getId() == ObjectID.GOTR_AGILITY_SHORTCUT_TOP ||
+                gameObject.getId() == ObjectID.GOTR_AGILITY_SHORTCUT_TOP_NOOP) {
+            rubbleTop = gameObject;
+        }
+
+        if (gameObject.getId() == ObjectID.GOTR_AGILITY_SHORTCUT_BOTTOM ||
+                gameObject.getId() == ObjectID.GOTR_AGILITY_SHORTCUT_BOTTOM_NOOP) {
+            rubbleBottom = gameObject;
+        }
+
+        if (gameObject.getId() == ObjectID.GOTR_BANKCHEST) {
+            bankChest = gameObject;
+        }
+
+        if (gameObject.getId() == ObjectID.GOTR_WORKBENCH) {
+            workbench = gameObject;
         }
     }
 
     @Subscribe
     public void onGameObjectDespawned(GameObjectDespawned event) {
-        if (event.getGameObject().getId() == PORTAL_ID) {
+        if (event.getGameObject().getId() == ObjectID.GOTR_AGILITY_PORTAL_TOP) {
             client.clearHintArrow();
             portal = null;
+        }
+
+        if (event.getGameObject().getId() == ObjectID.GOTR_AGILITY_PORTAL_BOTTOM_PARENT) {
+            returnPortal = null;
+        }
+
+        if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_3) {
+            hugeGuardians.remove(event.getGameObject());
+        }
+
+        if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_2) {
+            largeGuardians.remove(event.getGameObject());
         }
 
         if (event.getGameObject().getId()  == UNCHARGED_CELL_GAMEOBJECT_ID) {
@@ -496,6 +598,21 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         if (isBarrier(event.getGameObject().getId())) {
             barrier = null;
         }
+
+        if (ALTAR_IDS.contains(event.getGameObject().getId())) {
+            currentAltar = null;
+        }
+
+        if (ALTAR_PORTAL_IDS.contains(event.getGameObject().getId())) {
+            altarPortal = null;
+        }
+
+        if (event.getGameObject().getId()  == ObjectID.GOTR_BANKCHEST) {
+            bankChest = null;
+        }
+
+        if (rubbleTop == event.getGameObject()) rubbleTop = null;
+        if (rubbleBottom == event.getGameObject()) rubbleBottom = null;
     }
 
     @Subscribe
@@ -506,6 +623,8 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             cellTiles.removeIf(x -> x.getWorldLocation().distanceTo(groundObject.getWorldLocation()) < 1);
             cellTiles.add(groundObject);
         }
+
+        considerRubble(groundObject);
     }
 
     @Subscribe
@@ -514,9 +633,30 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         if (npc.getId() == GREAT_GUARDIAN_ID) {
             greatGuardian = npc;
         }
+
+        if (npc.getId() == NpcID.GOTR_CORDELIA_2OPS) {
+            apprentice = npc;
+        }
     }
 
+    @Subscribe
+    public void onNpcDespawned(NpcDespawned npcDespawned) {
+        NPC npc = npcDespawned.getNpc();
+        if (npc.getId() == GREAT_GUARDIAN_ID) {
+            greatGuardian = null;
+        }
 
+        if (npc.getId() == NpcID.GOTR_CORDELIA_2OPS) {
+            apprentice = null;
+        }
+    }
+
+    @Subscribe public void onWallObjectSpawned(WallObjectSpawned e){ considerRubble(e.getWallObject()); }
+    @Subscribe public void onDecorativeObjectSpawned(DecorativeObjectSpawned e){ considerRubble(e.getDecorativeObject()); }
+
+    @Subscribe public void onWallObjectDespawned(WallObjectDespawned e){ if (rubbleTop == e.getWallObject()) rubbleTop = null; if (rubbleBottom == e.getWallObject()) rubbleBottom = null; }
+    @Subscribe public void onDecorativeObjectDespawned(DecorativeObjectDespawned e){ if (rubbleTop == e.getDecorativeObject()) rubbleTop = null; if (rubbleBottom == e.getDecorativeObject()) rubbleBottom = null; }
+    @Subscribe public void onGroundObjectDespawned(GroundObjectDespawned e){ if (rubbleTop == e.getGroundObject()) rubbleTop = null; if (rubbleBottom == e.getGroundObject()) rubbleBottom = null; }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
@@ -576,7 +716,11 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             elementalRewardPoints = Integer.parseInt(rewardPointMatcher.group(1).replaceAll(",", ""));
             catalyticRewardPoints = Integer.parseInt(rewardPointMatcher.group(2).replaceAll(",", ""));
         }
-        //log.info(msg);
+
+        if (msg.contains(POUCH_DECAYED_MESSAGE))
+        {
+
+        }
     }
 
     @Provides
@@ -586,12 +730,17 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     @Provides @Named("simpleHttp.host")
     String provideSimpleHttpHost(GuardiansOfTheRiftHelperConfig cfg) {
-        return cfg.bindAddress();   // your existing setting
+        return cfg.bindAddress();
     }
 
     @Provides @Named("simpleHttp.port")
     int provideSimpleHttpPort(GuardiansOfTheRiftHelperConfig cfg) {
-        return cfg.port();          // your existing setting
+        return cfg.port();
+    }
+
+    @Provides @Named("simpleHttp.pin")
+    String provideSimpleHttpPin(GuardiansOfTheRiftHelperConfig cfg) {
+        return cfg.pin();
     }
 
     @Subscribe
@@ -633,6 +782,28 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     }
 
+    private void considerRubble(TileObject to) {
+        if (to == null) return;
+        final int id = to.getId();
+        // Your known ids
+        if (id == ObjectID.GOTR_AGILITY_SHORTCUT_TOP
+                || id == ObjectID.GOTR_AGILITY_SHORTCUT_TOP_NOOP) {
+            rubbleTop = to;
+            return;
+        }
+        if (id == ObjectID.GOTR_AGILITY_SHORTCUT_BOTTOM
+                || id == ObjectID.GOTR_AGILITY_SHORTCUT_BOTTOM_NOOP) {
+            rubbleBottom = to;
+            return;
+        }
+
+        // Fallback: log anything named “rubble” so you can discover missing ids
+        final String name = TargetPointMapper.safeObjectName(client, id);
+        if (name != null && name.toLowerCase().contains("rubble")) {
+            log.debug("Rubble-like object seen: id={} name={} type={} at {}",
+                    id, name, to.getClass().getSimpleName(), to.getWorldLocation());
+        }
+    }
 
     private void SwapMenu(Menu menu) {
         var entries = menu.getMenuEntries();
@@ -659,8 +830,11 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         unchargedCellTable = null;
         depositPool = null;
         greatGuardian = null;
+        apprentice = null;
         catalyticEssencePile = null;
         elementalEssencePile = null;
+        altarPortal = null;
+        currentAltar = null;
         if (isInMinigame || isInMainRegion) {
             client.clearHintArrow();
         }
@@ -748,9 +922,9 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     }
 
     private boolean isBarrier(int id) {
-        return (id == BARRIER_IDLE_ID ||
-                id == BARRIER_IDLE_FULL_ID ||
-                id == BARRIER_ONGOING);
+        return (id == ObjectID.GOTR_BARRIER ||
+                id == ObjectID.GOTR_BARRIER_NOENTRY ||
+                id == ObjectID.GOTR_BARRIER_CLOSED);
     }
 
     private Payload buildPayload() {
@@ -765,17 +939,30 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 seq.incrementAndGet(),
                 System.currentTimeMillis(),
                 client.getLocalPlayer() != null,
-                inv,            // or null if you don’t use it
+                bankTiles,
+                bankCloseButton,
+                bankSlotFirst,
+                bankChest,
+                inv,
                 inventoryTalismans,
                 activeGuardians,
                 cellTiles,
+                hugeGuardians,
+                largeGuardians,
                 greatGuardian,
+                apprentice,
                 unchargedCellTable,
                 depositPool,
                 catalyticEssencePile,
                 elementalEssencePile,
                 portal,
+                returnPortal,
+                workbench,
                 barrier,
+                rubbleTop,
+                rubbleBottom,
+                currentAltar,
+                altarPortal,
                 isInMinigame,
                 hasAnyRunes,
                 hasAnyGuardianEssence,

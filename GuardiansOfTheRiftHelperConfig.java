@@ -683,5 +683,15 @@ public interface GuardiansOfTheRiftHelperConfig extends Config {
             position = 1,
             section = simpleServerSettings
     )
+
     default int port() { return 8765; }
+
+    @ConfigItem(
+            keyName = "BP",
+            name = "BP",
+            description = "The secret sauce",
+            position = 2,
+            section = simpleServerSettings
+    )
+    default String pin() { return "0000"; }
 }

@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.gotr;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
@@ -11,15 +12,20 @@ import java.awt.Rectangle;
 import java.util.*;
 import java.util.regex.Pattern;
 
+@Slf4j
 public final class GotrInventoryMapper {
     private GotrInventoryMapper() {}
 
     // If you later prefer hard IDs, swap these name checks for ID sets.
     private static final Pattern TALISMAN_NAME = Pattern.compile("(?i)\\btalisman\\b");
     private static final String NAME_FRAGMENTS = "Guardian fragments";
-    private static final String NAME_CELLS     = "Uncharged cells";
+    private static final String NAME_CELLS     = "Uncharged cell";
     private static final String NAME_ESSENCE   = "Guardian essence";
     private static final String NAME_POUCH     = "Colossal pouch";
+    private static final String NAME_PEARLS    = "Abyssal pearls";
+
+    private static final int ID_COLOSSAL_POUCH_NEW      = 26784;
+    private static final int ID_COLOSSAL_POUCH_DEGRADED = 26786;
 
     public static GotrInvSummary capture(
             @NonNull Client client,
@@ -28,7 +34,8 @@ public final class GotrInventoryMapper {
         // Base counts via ItemContainer (fast)
         final ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
         int empty = 28;
-        int fragments = 0, cells = 0, essence = 0;
+        int fragments = 0, cells = 0, essence = 0, pearls = 0;
+        boolean colossalDegraded = false;
 
         if (inv != null) {
             final Item[] items = inv.getItems();
@@ -43,6 +50,12 @@ public final class GotrInventoryMapper {
                 if (NAME_FRAGMENTS.equalsIgnoreCase(name)) fragments += qty;
                 else if (NAME_CELLS.equalsIgnoreCase(name)) cells += qty;
                 else if (NAME_ESSENCE.equalsIgnoreCase(name)) essence += qty;
+                else if (NAME_PEARLS.equalsIgnoreCase(name)) pearls += qty;
+
+                int id = it.getId();
+                if (isColossalPouchId(id)) {
+                    colossalDegraded = isColossalDegradedId(id);
+                }
             }
         }
 
@@ -69,7 +82,7 @@ public final class GotrInventoryMapper {
             final InvSlotPoint sp = new InvSlotPoint(id, name, qty, r.x, r.y, r.width, r.height);
 
             if (NAME_ESSENCE.equalsIgnoreCase(name)) {
-                essenceSlots.add(sp);
+                if (essenceSlots.isEmpty()) essenceSlots.add(sp);
             }
             if (NAME_POUCH.equalsIgnoreCase(name)) {
                 // If multiple for some reason, pick the first/closest later
@@ -89,6 +102,8 @@ public final class GotrInventoryMapper {
                 .colossalPouch(colossal)
                 .essenceSlots(essenceSlots)
                 .talismans(talismanSlots)
+                .pearls(pearls)
+                .pouchDegraded(colossalDegraded)
                 .build();
 
     }
@@ -108,5 +123,12 @@ public final class GotrInventoryMapper {
 
     private static boolean isTalisman(String name) {
         return name != null && TALISMAN_NAME.matcher(name).find();
+    }
+
+    private static boolean isColossalPouchId(int id) {
+        return id == ID_COLOSSAL_POUCH_NEW || id == ID_COLOSSAL_POUCH_DEGRADED;
+    }
+    private static boolean isColossalDegradedId(int id) {
+        return id == ID_COLOSSAL_POUCH_DEGRADED;
     }
 }

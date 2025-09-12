@@ -228,7 +228,7 @@ public class GuardiansOfTheRiftHelperOverlay extends Overlay {
             return;
         }
 
-        if (!plugin.getChargedCellType().isPresent()) {
+        if (plugin.getChargedCellType().isEmpty()) {
             return;
         }
 
