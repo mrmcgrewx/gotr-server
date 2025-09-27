@@ -124,6 +124,17 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private static final int DIALOG_WIDGET_MESSAGE = 1;
     private static final String BARRIER_DIALOG_FINISHING_UP = "It looks like the adventurers within are just finishing up. You must<br>wait until they are done to join.";
 
+    private static final int COLOSSAL_CAPACITY = 40;
+    private static final int ID_COLOSSAL_POUCH_NEW      = 26784;
+    private static final int ID_COLOSSAL_POUCH_DEGRADED = 26786;
+    private static final int ID_GUARDIAN_ESSENCE        = 26879; // guardian essence item id
+
+    private enum PAction { NONE, FILL, EMPTY }
+    private PAction pendingPouchAction = PAction.NONE;
+
+    private int pouchEssence = 0;        // what you want to expose
+    private int lastInvEss = 0;          // last seen inventory essence count
+
     private final AtomicLong seq = new AtomicLong();
 
     @Getter(AccessLevel.PACKAGE)
@@ -339,6 +350,31 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 previousGuardianFragments = quantity;
             }
         }
+
+        if (event.getContainerId() != InventoryID.INVENTORY.getId()) return;
+        if (pendingPouchAction == PAction.NONE) return;
+
+        int nowEss = 0;
+        for (Item it : event.getItemContainer().getItems())
+            if (it != null && it.getId() == ID_GUARDIAN_ESSENCE)
+                nowEss += it.getQuantity();
+
+        int delta = nowEss - lastInvEss;
+
+        if (pendingPouchAction == PAction.FILL && delta < 0) {
+            // inventory essence decreased → moved into pouch
+            int added = Math.min(-delta, COLOSSAL_CAPACITY - pouchEssence);
+            pouchEssence = Math.max(0, Math.min(COLOSSAL_CAPACITY, pouchEssence + added));
+        }
+        else if (pendingPouchAction == PAction.EMPTY && delta > 0) {
+            // inventory essence increased → removed from pouch
+            int removed = Math.min(delta, pouchEssence);
+            pouchEssence = Math.max(0, pouchEssence - removed);
+        }
+
+        // Reset action after we processed one inventory update
+        pendingPouchAction = PAction.NONE;
+        lastInvEss = nowEss;
     }
 
     @Subscribe
@@ -371,15 +407,8 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         }
 
         if (BankWidget.isBankVisible(client)) {
-            log.info("Bank is visible");
             bankCloseButton = BankWidget.getCloseButton(client);
-            if (bankCloseButton != null) {
-                log.info("Identified close button");
-            }
-            bankSlotFirst = BankWidget.getFirstSlot(client);
-            if (bankSlotFirst != null) {
-                log.info("Identified First slot");
-            }
+            bankSlotFirst = BankWidget.findVisibleBankFirstSlot(client);
         } else {
             bankCloseButton = null;
             bankSlotFirst = null;
@@ -448,7 +477,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             }
         }
 
-        Payload p = buildPayload();
+        GotrPayload p = buildPayload();
         httpServer.setLatestJson(p);
     }
 
@@ -651,22 +680,37 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         }
     }
 
-    @Subscribe public void onWallObjectSpawned(WallObjectSpawned e){ considerRubble(e.getWallObject()); }
-    @Subscribe public void onDecorativeObjectSpawned(DecorativeObjectSpawned e){ considerRubble(e.getDecorativeObject()); }
+    @Subscribe public void onWallObjectSpawned(WallObjectSpawned e){
+        considerRubble(e.getWallObject());
+    }
 
-    @Subscribe public void onWallObjectDespawned(WallObjectDespawned e){ if (rubbleTop == e.getWallObject()) rubbleTop = null; if (rubbleBottom == e.getWallObject()) rubbleBottom = null; }
-    @Subscribe public void onDecorativeObjectDespawned(DecorativeObjectDespawned e){ if (rubbleTop == e.getDecorativeObject()) rubbleTop = null; if (rubbleBottom == e.getDecorativeObject()) rubbleBottom = null; }
-    @Subscribe public void onGroundObjectDespawned(GroundObjectDespawned e){ if (rubbleTop == e.getGroundObject()) rubbleTop = null; if (rubbleBottom == e.getGroundObject()) rubbleBottom = null; }
+    @Subscribe public void onDecorativeObjectSpawned(DecorativeObjectSpawned e){
+        considerRubble(e.getDecorativeObject());
+    }
+
+    @Subscribe public void onWallObjectDespawned(WallObjectDespawned e){
+        if (rubbleTop == e.getWallObject()) rubbleTop = null;
+        if (rubbleBottom == e.getWallObject()) rubbleBottom = null;
+
+    }
+
+    @Subscribe public void onDecorativeObjectDespawned(DecorativeObjectDespawned e){
+        if (rubbleTop == e.getDecorativeObject()) rubbleTop = null;
+        if (rubbleBottom == e.getDecorativeObject()) rubbleBottom = null;
+    }
+
+    @Subscribe public void onGroundObjectDespawned(GroundObjectDespawned e){
+        if (rubbleTop == e.getGroundObject()) rubbleTop = null;
+        if (rubbleBottom == e.getGroundObject()) rubbleBottom = null;
+    }
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
         if (event.getGameState() == GameState.LOADING) {
             // on region changes the tiles get set to null
             reset();
-            httpServer.setDefaultJson();
         } else if (event.getGameState() == GameState.LOGIN_SCREEN) {
             isInMinigame = false;
-            httpServer.setDefaultJson();
         }
     }
 
@@ -686,6 +730,9 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         String msg = chatMessage.getMessage();
         if (msg.contains("You step through the portal")) {
             client.clearHintArrow();
+        }
+        if (msg.contains("There is no essence in this pouch")) {
+            pouchEssence = 0;
         }
         if (msg.contains("The rift becomes active!")) {
             lastPortalDespawnTime = Optional.of(Instant.now());
@@ -716,11 +763,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             elementalRewardPoints = Integer.parseInt(rewardPointMatcher.group(1).replaceAll(",", ""));
             catalyticRewardPoints = Integer.parseInt(rewardPointMatcher.group(2).replaceAll(",", ""));
         }
-
-        if (msg.contains(POUCH_DECAYED_MESSAGE))
-        {
-
-        }
     }
 
     @Provides
@@ -745,6 +787,20 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
+        // Only care when the clicked item is the colossal pouch
+        final int itemId = event.getItemId();
+        if (itemId != ID_COLOSSAL_POUCH_NEW && itemId != ID_COLOSSAL_POUCH_DEGRADED) return;
+
+        final String opt = event.getMenuOption() == null ? "" : event.getMenuOption().toLowerCase();
+        if (opt.contains("fill")) {
+            pendingPouchAction = PAction.FILL;
+            lastInvEss = countInvEssence();
+        }
+        else if (opt.contains("empty")) {
+            pendingPouchAction = PAction.EMPTY;
+            lastInvEss = countInvEssence();
+        }
+
         if (!config.quickPassCooldown()) return;
 
         // Only allow one click on the entry barrier's quick-pass option for every 3 game ticks
@@ -835,6 +891,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         elementalEssencePile = null;
         altarPortal = null;
         currentAltar = null;
+        pouchEssence = 0;
         if (isInMinigame || isInMainRegion) {
             client.clearHintArrow();
         }
@@ -921,24 +978,36 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         return savedPoints += currentPoints / 100;
     }
 
+    private int countInvEssence()
+    {
+        final ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
+        if (inv == null) return 0;
+        int sum = 0;
+        for (Item it : inv.getItems())
+            if (it != null && it.getId() == ID_GUARDIAN_ESSENCE)
+                sum += it.getQuantity();
+        return sum;
+    }
+
     private boolean isBarrier(int id) {
         return (id == ObjectID.GOTR_BARRIER ||
                 id == ObjectID.GOTR_BARRIER_NOENTRY ||
                 id == ObjectID.GOTR_BARRIER_CLOSED);
     }
 
-    private Payload buildPayload() {
+    private GotrPayload buildPayload() {
         PlayerSnapshot player = PlayerSnapshot.capture(client, lastPlayerWp);
         Player me = client.getLocalPlayer();
         lastPlayerWp = (me != null) ? me.getWorldLocation() : null;
 
-        final GotrInvSummary inv = GotrInventoryMapper.capture(client, itemManager);
+        final GotrInvSummary inv = GotrInventoryMapper.capture(client, itemManager, pouchEssence);
 
         return new GotrPayload(
                 client,
                 seq.incrementAndGet(),
                 System.currentTimeMillis(),
                 client.getLocalPlayer() != null,
+                isInMinigame,
                 bankTiles,
                 bankCloseButton,
                 bankSlotFirst,
@@ -963,7 +1032,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 rubbleBottom,
                 currentAltar,
                 altarPortal,
-                isInMinigame,
                 hasAnyRunes,
                 hasAnyGuardianEssence,
                 isFirstPortal,

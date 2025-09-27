@@ -7,6 +7,8 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.server.InvSlotPoint;
+import net.runelite.client.server.TargetPoint;
+import net.runelite.client.server.TargetPointMapper;
 
 import java.awt.Rectangle;
 import java.util.*;
@@ -29,7 +31,8 @@ public final class GotrInventoryMapper {
 
     public static GotrInvSummary capture(
             @NonNull Client client,
-            @NonNull ItemManager itemManager
+            @NonNull ItemManager itemManager,
+            int pouchEssenceTracked
     ) {
         // Base counts via ItemContainer (fast)
         final ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
@@ -67,19 +70,33 @@ public final class GotrInventoryMapper {
 
         for (Widget w: wis) {
             final int id = w.getItemId();
-            //final int slot = wi.getSlot();
-            final int qty = w.getItemQuantity();
-            final Point p = w.getCanvasLocation(); // This returns a point
-            if (id <= 0 || p == null) continue;
+            if (id <= 0 || w.isHidden()) continue;
 
-            final int width = w.getWidth();
-            final int height = w.getHeight();
-            final Rectangle r = new Rectangle(p.getX(), p.getY(), width, height);
+            // canvas bounds of this slot
+            final java.awt.Rectangle rb = w.getBounds();          // canvas-space
+            if (rb == null || rb.width <= 0 || rb.height <= 0) continue;
+
+            // center in canvas
+            final int cx = rb.x + rb.width / 2;
+            final int cy = rb.y + rb.height / 2;
+
+            // canvas → screen
+            Integer sx = null, sy = null;
+            try {
+                java.awt.Point topLeft = client.getCanvas().getLocationOnScreen();
+                if (topLeft != null) {
+                    sx = topLeft.x + cx;
+                    sy = topLeft.y + cy;
+                }
+            } catch (java.awt.IllegalComponentStateException ignored) {}
+
+            if (sx == null || sy == null) continue;
 
             final ItemComposition comp = safeComp(itemManager, id);
             final String name = comp != null ? comp.getName() : "";
+            final int qty = w.getItemQuantity();
 
-            final InvSlotPoint sp = new InvSlotPoint(id, name, qty, r.x, r.y, r.width, r.height);
+            final InvSlotPoint sp = new InvSlotPoint(id, name, qty, sx, sy);
 
             if (NAME_ESSENCE.equalsIgnoreCase(name)) {
                 if (essenceSlots.isEmpty()) essenceSlots.add(sp);
@@ -104,6 +121,7 @@ public final class GotrInventoryMapper {
                 .talismans(talismanSlots)
                 .pearls(pearls)
                 .pouchDegraded(colossalDegraded)
+                .pouchEssence(pouchEssenceTracked)
                 .build();
 
     }

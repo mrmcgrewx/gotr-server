@@ -17,6 +17,7 @@ public class GotrInvSummary extends InvSummary {
     int unchargedCells;      // Uncharged cells (total)
     int essence;             // Guardian essence (total)
     int pearls;              // Abyssal pearls (total)
+    int pouchEssence;
 
     InvSlotPoint colossalPouch;       // where to click to empty/fill
     boolean pouchDegraded;
