@@ -117,6 +117,8 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private static final Pattern REWARD_POINT_PATTERN = Pattern.compile(REWARD_POINT_REGEX);
     private static final String CHECK_POINT_REGEX = "You have (\\d+) catalytic energy and (\\d+) elemental energy";
     private static final Pattern CHECK_POINT_PATTERN = Pattern.compile(CHECK_POINT_REGEX);
+    private static final String REWARDED_REGEX = "You've been awarded";
+    private static final Pattern REWARDED_PATTERN = Pattern.compile(REWARDED_REGEX);
 
     private static final String POUCH_DECAYED_MESSAGE = "Your pouch has decayed through use.";
 
@@ -135,6 +137,11 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private int pouchEssence = 0;        // what you want to expose
     private int lastInvEss = 0;          // last seen inventory essence count
 
+    // constants for the two GOTR guardian tiles
+    private static final WorldPoint HUGE_TILE  = new WorldPoint(3589, 9497, 0);
+    private static final WorldPoint LARGE_TILE = new WorldPoint(3639, 9497, 0);
+    private static final WorldPoint CHAOS_ALTAR_PORTAL_TILE = new WorldPoint(2281, 4837, 0);
+
     private final AtomicLong seq = new AtomicLong();
 
     @Getter(AccessLevel.PACKAGE)
@@ -145,10 +152,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private final Set<Integer> inventoryTalismans = new HashSet<>();
     @Getter(AccessLevel.PACKAGE)
     private final Set<GroundObject> cellTiles = new HashSet<>();
-    @Getter(AccessLevel.PACKAGE)
-    private final Set<GameObject> hugeGuardians = new HashSet<>();
-    @Getter(AccessLevel.PACKAGE)
-    private final Set<GameObject> largeGuardians = new HashSet<>();
 
     @Getter(AccessLevel.PACKAGE)
     private NPC greatGuardian;
@@ -169,6 +172,10 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private GameObject returnPortal;
     @Getter(AccessLevel.PACKAGE)
     private GameObject workbench;
+    @Getter(AccessLevel.PACKAGE)
+    private GameObject hugeGuardian;
+    @Getter(AccessLevel.PACKAGE)
+    private GameObject largeGuardian;
 
     @Getter(AccessLevel.PACKAGE)
     private TileObject barrier;
@@ -207,6 +214,8 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private boolean shouldMakeGuardian = false;
     @Getter(AccessLevel.PACKAGE)
     private boolean isFirstPortal = false;
+    @Getter(AccessLevel.PACKAGE)
+    private boolean rewardReceived = false;
 
     @Getter(AccessLevel.PACKAGE)
     private int elementalRewardPoints;
@@ -299,7 +308,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         overlayManager.add(panel);
         overlayManager.add(startTimerOverlay);
         overlayManager.add(portalOverlay);
-        isInMinigame = true;
+        isInMinigame = false;
         httpServer = new SimpleHttpServer(config.bindAddress(), config.port());
         httpServer.startHttp();
 
@@ -317,6 +326,30 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     @Subscribe
     public void onItemContainerChanged(ItemContainerChanged event) {
+        if (pendingPouchAction != PAction.NONE || event.getItemContainer() != client.getItemContainer(InventoryID.INVENTORY)) {
+            int nowEss = 0;
+            for (Item it : event.getItemContainer().getItems())
+                if (it != null && it.getId() == ID_GUARDIAN_ESSENCE)
+                    nowEss += it.getQuantity();
+
+            int delta = nowEss - lastInvEss;
+
+            if (pendingPouchAction == PAction.FILL && delta < 0) {
+                // inventory essence decreased → moved into pouch
+                int added = Math.min(-delta, COLOSSAL_CAPACITY - pouchEssence);
+                pouchEssence = Math.max(0, Math.min(COLOSSAL_CAPACITY, pouchEssence + added));
+            }
+            else if (pendingPouchAction == PAction.EMPTY && delta > 0) {
+                // inventory essence increased → removed from pouch
+                int removed = Math.min(delta, pouchEssence);
+                pouchEssence = Math.max(0, pouchEssence - removed);
+            }
+
+            // Reset action after we processed one inventory update
+            pendingPouchAction = PAction.NONE;
+            lastInvEss = nowEss;
+        }
+
         if ((!isInMainRegion && !isInMinigame) || event.getItemContainer() != client.getItemContainer(InventoryID.INVENTORY)) {
             return;
         }
@@ -350,31 +383,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 previousGuardianFragments = quantity;
             }
         }
-
-        if (event.getContainerId() != InventoryID.INVENTORY.getId()) return;
-        if (pendingPouchAction == PAction.NONE) return;
-
-        int nowEss = 0;
-        for (Item it : event.getItemContainer().getItems())
-            if (it != null && it.getId() == ID_GUARDIAN_ESSENCE)
-                nowEss += it.getQuantity();
-
-        int delta = nowEss - lastInvEss;
-
-        if (pendingPouchAction == PAction.FILL && delta < 0) {
-            // inventory essence decreased → moved into pouch
-            int added = Math.min(-delta, COLOSSAL_CAPACITY - pouchEssence);
-            pouchEssence = Math.max(0, Math.min(COLOSSAL_CAPACITY, pouchEssence + added));
-        }
-        else if (pendingPouchAction == PAction.EMPTY && delta > 0) {
-            // inventory essence increased → removed from pouch
-            int removed = Math.min(delta, pouchEssence);
-            pouchEssence = Math.max(0, pouchEssence - removed);
-        }
-
-        // Reset action after we processed one inventory update
-        pendingPouchAction = PAction.NONE;
-        lastInvEss = nowEss;
     }
 
     @Subscribe
@@ -397,7 +405,20 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             if (animation != null && animation.getId() == GUARDIAN_ACTIVE_ANIM) {
                 activeGuardians.add(guardian);
             }
+
         }
+
+        if (!inventoryTalismans.isEmpty()) {
+            Set<Integer> wantedIds = inventoryTalismans.stream()
+                    .map(GuardianInfo.TALISMAN_TO_GUARDIAN_ID::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            guardians.stream()
+                    .filter(go -> wantedIds.contains(go.getId()))
+                    .forEach(activeGuardians::add);
+        }
+
 
         if (BankWidget.isBankLoginVisible(client)) {
             log.info("Bank login visible");
@@ -520,11 +541,15 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         }
 
         if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_3) {
-            hugeGuardians.add(gameObject);
+            if (nearTile(event.getGameObject(), HUGE_TILE,3)) {
+                hugeGuardian = event.getGameObject();
+            }
         }
 
         if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_2) {
-            largeGuardians.add(gameObject);
+            if (nearTile(event.getGameObject(), LARGE_TILE,3)) {
+                largeGuardian = event.getGameObject();
+            }
         }
 
         if (ALTAR_IDS.contains(event.getGameObject().getId())) {
@@ -532,7 +557,13 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         }
 
         if (ALTAR_PORTAL_IDS.contains(event.getGameObject().getId())) {
-            altarPortal = gameObject;
+            if (event.getGameObject().getId() == GuardianInfo.CHAOS.altarPortalGameObjectId) {
+                if (nearTile(event.getGameObject(), CHAOS_ALTAR_PORTAL_TILE, 3)) {
+                    altarPortal = gameObject;
+                }
+            } else {
+                altarPortal = gameObject;
+            }
         }
 
         if (gameObject.getId() == UNCHARGED_CELL_GAMEOBJECT_ID) {
@@ -601,11 +632,11 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         }
 
         if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_3) {
-            hugeGuardians.remove(event.getGameObject());
+            hugeGuardian = null;
         }
 
         if (event.getGameObject().getId() == ObjectID.GOTR_ESSENCE_TIER_2) {
-            largeGuardians.remove(event.getGameObject());
+            largeGuardian = null;
         }
 
         if (event.getGameObject().getId()  == UNCHARGED_CELL_GAMEOBJECT_ID) {
@@ -730,9 +761,13 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         String msg = chatMessage.getMessage();
         if (msg.contains("You step through the portal")) {
             client.clearHintArrow();
+            portal = null;
         }
         if (msg.contains("There is no essence in this pouch")) {
             pouchEssence = 0;
+        }
+        if (msg.contains("You've been awarded")) {
+            rewardReceived = true;
         }
         if (msg.contains("The rift becomes active!")) {
             lastPortalDespawnTime = Optional.of(Instant.now());
@@ -740,6 +775,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             gameStarted = Optional.of(Instant.now());
             isFirstPortal = true;
             hasNotifiedFirstRift = false;
+            rewardReceived = false;
         } else if (msg.contains("The rift will become active in 30 seconds.")) {
             hasNotifiedGameStart = config.beforeGameStartSeconds() > 30;
             nextGameStart = Optional.of(Instant.now().plusSeconds(30));
@@ -891,9 +927,9 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         elementalEssencePile = null;
         altarPortal = null;
         currentAltar = null;
-        pouchEssence = 0;
         if (isInMinigame || isInMainRegion) {
             client.clearHintArrow();
+            portal = null;
         }
     }
 
@@ -995,6 +1031,11 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 id == ObjectID.GOTR_BARRIER_CLOSED);
     }
 
+    private static boolean nearTile(GameObject go, WorldPoint tile, int tol) {
+         WorldPoint w = go.getWorldLocation();
+         return w != null && w.distanceTo(tile) <= tol;
+    }
+
     private GotrPayload buildPayload() {
         PlayerSnapshot player = PlayerSnapshot.capture(client, lastPlayerWp);
         Player me = client.getLocalPlayer();
@@ -1013,11 +1054,10 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 bankSlotFirst,
                 bankChest,
                 inv,
-                inventoryTalismans,
                 activeGuardians,
                 cellTiles,
-                hugeGuardians,
-                largeGuardians,
+                hugeGuardian,
+                largeGuardian,
                 greatGuardian,
                 apprentice,
                 unchargedCellTable,
@@ -1034,6 +1074,9 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 altarPortal,
                 hasAnyRunes,
                 hasAnyGuardianEssence,
+                hasAnyChargedCells,
+                hasAnyStones,
+                rewardReceived,
                 isFirstPortal,
                 portalSpawnTime.orElse(null),
                 lastPortalDespawnTime.orElse(null),

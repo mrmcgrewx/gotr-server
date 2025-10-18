@@ -8,9 +8,11 @@ import net.runelite.client.game.ItemManager;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class GuardianInfo {
     public static final GuardianInfo AIR = new GuardianInfo("Air", 43701, 34760,34748, 1, ItemID.AIR_RUNE, 26887, 4353, false, CellType.Weak, x -> x.notifyAirGuardian());
@@ -27,6 +29,9 @@ public class GuardianInfo {
     public static final GuardianInfo BLOOD = new GuardianInfo("Blood", 43708, 43479, 43478, 77, ItemID.BLOOD_RUNE, 26894, 4364, true, CellType.Overcharged, x -> x.notifyBloodGuardian());
 
     public static final Set<GuardianInfo> ALL = ImmutableSet.of(AIR, MIND, WATER, EARTH, FIRE, BODY, COSMIC, CHAOS, NATURE, LAW, DEATH, BLOOD);
+
+    public static final Map<Integer, Integer> TALISMAN_TO_GUARDIAN_ID =
+            ALL.stream().collect(Collectors.toMap(gi -> gi.talismanId, gi -> gi.gameObjectId));
 
     public String name;
     public int gameObjectId;
@@ -92,4 +97,5 @@ public class GuardianInfo {
 
         return Color.WHITE;
     }
+
 }

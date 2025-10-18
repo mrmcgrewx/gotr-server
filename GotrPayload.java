@@ -20,11 +20,10 @@ import static net.runelite.client.server.MenuSnapshot.buildMenuSnapshot;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class GotrPayload extends Payload {
-    private final List<Integer> inventoryTalismans;
     private final List<TargetPoint> activeGuardians;
     private final List<TargetPoint> cellTiles;
-    private final List<TargetPoint> hugeGuardians;
-    private final List<TargetPoint> largeGuardians;
+    private final TargetPoint hugeGuardian;
+    private final TargetPoint largeGuardian;
     private final TargetPoint greatGuardian;
     private final TargetPoint apprentice;
     private final TargetPoint unchargedCellTable;
@@ -44,7 +43,10 @@ public class GotrPayload extends Payload {
     private final boolean isInMinigame;
     private final boolean hasAnyRunes;
     private final boolean hasAnyGuardianEssence;
+    private final boolean hasAnyChargedCells;
+    private final boolean hasAnyStones;
     private final boolean isFirstPortal;
+    private final boolean rewardReceived;
 
     private final Instant portalSpawnTime;
     private final Instant lastPortalDespawnTime;
@@ -67,11 +69,10 @@ public class GotrPayload extends Payload {
             Widget bankFirstSlot,
             GameObject bankChest,
             InvSummary inv,
-            Set<Integer> inventoryTalismans,
             Set<GameObject> activeGuardians,
             Set<GroundObject> cellTiles,
-            Set<GameObject> hugeGuardians,
-            Set<GameObject> largeGuardians,
+            GameObject hugeGuardian,
+            GameObject largeGuardian,
             NPC greatGuardian,
             NPC apprentice,
             GameObject unchargedCellTable,
@@ -89,7 +90,10 @@ public class GotrPayload extends Payload {
 
             boolean hasAnyRunes,
             boolean hasAnyGuardianEssence,
+            boolean hasAnyChargedCells,
+            boolean hasAnyStones,
             boolean isFirstPortal,
+            boolean rewardReceived,
             Instant portalSpawnTime,
             Instant lastPortalDespawnTime,
             Instant nextGameStart,
@@ -98,6 +102,7 @@ public class GotrPayload extends Payload {
             PlayerSnapshot player
     ) {
         TargetPoint rp;
+        TargetPoint hg;
 
         this.seq = seq;
         this.ts = ts;
@@ -116,7 +121,6 @@ public class GotrPayload extends Payload {
         this.isInMinigame = isInMinigame;
 
         if (isInMinigame) {
-            this.inventoryTalismans = new ArrayList<>(inventoryTalismans);
             this.activeGuardians = activeGuardians.isEmpty() ? null : activeGuardians.stream()
                     .map(go -> TargetPointMapper.fromTileObject(client, go, TargetPointMapper.safeObjectName(client, go.getId())))
                     .filter(Objects::nonNull)
@@ -125,14 +129,8 @@ public class GotrPayload extends Payload {
                     .map(go -> TargetPointMapper.fromTileObject(client, go))
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
-            this.hugeGuardians = hugeGuardians.isEmpty() ? null : hugeGuardians.stream()
-                    .map(hg -> TargetPointMapper.fromTileObject(client, hg))
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            this.largeGuardians = largeGuardians.isEmpty() ? null : largeGuardians.stream()
-                    .map(lg -> TargetPointMapper.fromTileObject(client, lg))
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            hg                        = TargetPointMapper.fromTileObject(client, hugeGuardian);
+            this.largeGuardian        = TargetPointMapper.fromTileObject(client, largeGuardian);
             this.greatGuardian        = TargetPointMapper.fromNPC(client, greatGuardian);
             this.apprentice           = TargetPointMapper.fromNPC(client, apprentice);
             this.unchargedCellTable   = TargetPointMapper.fromTileObject(client, unchargedCellTable);
@@ -141,20 +139,19 @@ public class GotrPayload extends Payload {
             this.elementalEssencePile = TargetPointMapper.fromTileObject(client, elementalEssencePile);
             this.portal               = TargetPointMapper.fromTileObject(client, portal);
             rp = TargetPointMapper.fromTileObject(client, returnPortal);
-            if (rp.getDistToPlayer() > 10) {
+            if (rp.getDistToPlayer() > 5) {
                 rp = null;
+                hg = null;
             }
             this.workbench            = TargetPointMapper.fromTileObject(client, workbench);
             this.rubbleTop            = TargetPointMapper.fromTileObject(client, rubbleTop);
             this.rubbleBottom         = TargetPointMapper.fromTileObject(client, rubbleBottom);
-            this.guardianEnergy       = guardianEnergy;
 
         } else {
-            this.inventoryTalismans   = null;
             this.activeGuardians      = null;
             this.cellTiles            = null;
-            this.hugeGuardians        = null;
-            this.largeGuardians       = null;
+            hg                        = null;
+            this.largeGuardian        = null;
             this.greatGuardian        = null;
             this.apprentice           = null;
             this.unchargedCellTable   = null;
@@ -162,13 +159,13 @@ public class GotrPayload extends Payload {
             this.catalyticEssencePile = null;
             this.elementalEssencePile = null;
             this.portal               = null;
-            rp = null;
+            rp                        = null;
             this.workbench            = null;
             this.rubbleTop            = null;
             this.rubbleBottom         = null;
-            this.guardianEnergy       = null;
         }
 
+        this.hugeGuardian         = hg;
         this.returnPortal         = rp;
         this.barrier              = TargetPointMapper.fromTileObject(client, barrier);
         this.currentAltar         = TargetPointMapper.fromTileObject(client, currentAltar);
@@ -176,12 +173,16 @@ public class GotrPayload extends Payload {
 
         this.hasAnyRunes = hasAnyRunes;
         this.hasAnyGuardianEssence = hasAnyGuardianEssence;
+        this.hasAnyChargedCells = hasAnyChargedCells;
+        this.hasAnyStones = hasAnyStones;
         this.isFirstPortal = isFirstPortal;
+        this.rewardReceived = rewardReceived;
 
         this.portalSpawnTime = portalSpawnTime;
         this.lastPortalDespawnTime = lastPortalDespawnTime;
         this.nextGameStart = nextGameStart;
         this.gameStarted = gameStarted;
+        this.guardianEnergy = guardianEnergy;
 
         this.player = player;
         this.menu   = buildMenuSnapshot(client);
