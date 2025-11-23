@@ -421,7 +421,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
 
         if (BankWidget.isBankLoginVisible(client)) {
-            log.info("Bank login visible");
             bankTiles = BankWidget.getKeyWidgets(client, config.pin());
         } else {
             bankTiles = null;
@@ -763,19 +762,19 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             client.clearHintArrow();
             portal = null;
         }
-        if (msg.contains("There is no essence in this pouch")) {
+        if (msg.contains("There is no essence in this pouch.") || msg.contains("You do not have any essence to fill your pouch with.")) {
             pouchEssence = 0;
         }
-        if (msg.contains("You've been awarded")) {
-            rewardReceived = true;
-        }
+
         if (msg.contains("The rift becomes active!")) {
-            lastPortalDespawnTime = Optional.of(Instant.now());
+            Optional<Instant> currTime = Optional.of(Instant.now());
+            lastPortalDespawnTime = currTime;
             nextGameStart = Optional.empty();
-            gameStarted = Optional.of(Instant.now());
+            gameStarted = currTime;
             isFirstPortal = true;
             hasNotifiedFirstRift = false;
             rewardReceived = false;
+            pouchEssence = 0;
         } else if (msg.contains("The rift will become active in 30 seconds.")) {
             hasNotifiedGameStart = config.beforeGameStartSeconds() > 30;
             nextGameStart = Optional.of(Instant.now().plusSeconds(30));
@@ -798,6 +797,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             // Use replaceAll to remove thousands separators from the text
             elementalRewardPoints = Integer.parseInt(rewardPointMatcher.group(1).replaceAll(",", ""));
             catalyticRewardPoints = Integer.parseInt(rewardPointMatcher.group(2).replaceAll(",", ""));
+            rewardReceived = true;
         }
     }
 
@@ -823,6 +823,17 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
 
     @Subscribe
     public void onMenuOptionClicked(MenuOptionClicked event) {
+        if (!config.quickPassCooldown()) return;
+
+        // Only allow one click on the entry barrier's quick-pass option for every 3 game ticks
+        if (event.getId() == 43700 && event.getMenuAction().getId() == 5) {
+            if (entryBarrierClickCooldown > 0) {
+                event.consume();
+            } else {
+                entryBarrierClickCooldown = 3;
+            }
+        }
+
         // Only care when the clicked item is the colossal pouch
         final int itemId = event.getItemId();
         if (itemId != ID_COLOSSAL_POUCH_NEW && itemId != ID_COLOSSAL_POUCH_DEGRADED) return;
@@ -835,17 +846,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         else if (opt.contains("empty")) {
             pendingPouchAction = PAction.EMPTY;
             lastInvEss = countInvEssence();
-        }
-
-        if (!config.quickPassCooldown()) return;
-
-        // Only allow one click on the entry barrier's quick-pass option for every 3 game ticks
-        if (event.getId() == 43700 && event.getMenuAction().getId() == 5) {
-            if (entryBarrierClickCooldown > 0) {
-                event.consume();
-            } else {
-                entryBarrierClickCooldown = 3;
-            }
         }
     }
 
@@ -877,7 +877,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
     private void considerRubble(TileObject to) {
         if (to == null) return;
         final int id = to.getId();
-        // Your known ids
+
         if (id == ObjectID.GOTR_AGILITY_SHORTCUT_TOP
                 || id == ObjectID.GOTR_AGILITY_SHORTCUT_TOP_NOOP) {
             rubbleTop = to;
@@ -889,7 +889,6 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             return;
         }
 
-        // Fallback: log anything named “rubble” so you can discover missing ids
         final String name = TargetPointMapper.safeObjectName(client, id);
         if (name != null && name.toLowerCase().contains("rubble")) {
             log.debug("Rubble-like object seen: id={} name={} type={} at {}",
