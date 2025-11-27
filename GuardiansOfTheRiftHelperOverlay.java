@@ -102,14 +102,7 @@ public class GuardiansOfTheRiftHelperOverlay extends Overlay {
     }
 
     private PointBalance currentBalance() {
-        final var potElementalPoints = plugin.potentialPointsElemental();
-        final var potCatalyticPoints = plugin.potentialPointsCatalytic();
-        if (potElementalPoints > potCatalyticPoints) {
-            return PointBalance.NEED_CATALYTIC;
-        } else if (potCatalyticPoints > potElementalPoints) {
-            return PointBalance.NEED_ELEMENTAL;
-        }
-        return PointBalance.BALANCED;
+        return plugin.getPointBalance();
     }
 
     private void renderActiveGuardians(Graphics2D graphics) {

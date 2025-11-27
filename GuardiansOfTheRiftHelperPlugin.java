@@ -497,8 +497,7 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             }
         }
 
-        GotrPayload p = buildPayload();
-        httpServer.setLatestJson(p);
+        httpServer.setLatestJson(buildPayload());
     }
 
     int parseRuneWidget(Widget runeWidget, int lastSpriteId) {
@@ -798,7 +797,12 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
             elementalRewardPoints = Integer.parseInt(rewardPointMatcher.group(1).replaceAll(",", ""));
             catalyticRewardPoints = Integer.parseInt(rewardPointMatcher.group(2).replaceAll(",", ""));
             rewardReceived = true;
+        } else if (REWARDED_PATTERN.matcher(msg).find()) {
+            // Fallback for the shorter award message without totals
+            rewardReceived = true;
         }
+
+        httpServer.setLatestJson(buildPayload());
     }
 
     @Provides
@@ -1006,6 +1010,17 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
         return potentialPoints(getCatalyticRewardPoints(), getCurrentCatalyticRewardPoints());
     }
 
+    public PointBalance getPointBalance() {
+        final int potElementalPoints = potentialPointsElemental();
+        final int potCatalyticPoints = potentialPointsCatalytic();
+        if (potElementalPoints > potCatalyticPoints) {
+            return PointBalance.NEED_CATALYTIC;
+        } else if (potCatalyticPoints > potElementalPoints) {
+            return PointBalance.NEED_ELEMENTAL;
+        }
+        return PointBalance.BALANCED;
+    }
+
     private int potentialPoints(int savedPoints, int currentPoints) {
         if (currentPoints == 0) {
             return savedPoints;
@@ -1082,7 +1097,8 @@ public class GuardiansOfTheRiftHelperPlugin extends Plugin {
                 nextGameStart.orElse(null),
                 gameStarted.orElse(null),
                 guardianEnergy,
-                player
+                player,
+                getPointBalance()
         );
     }
 }

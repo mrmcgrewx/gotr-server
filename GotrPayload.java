@@ -39,6 +39,7 @@ public class GotrPayload extends Payload {
     private TargetPoint currentAltar;
     private TargetPoint altarPortal;
     private Integer guardianEnergy;
+    private PointBalance pointBalance;
 
     private boolean isInMinigame;
     private boolean hasAnyRunes;
@@ -99,7 +100,8 @@ public class GotrPayload extends Payload {
             Instant nextGameStart,
             Instant gameStarted,
             Integer guardianEnergy,
-            PlayerSnapshot player
+            PlayerSnapshot player,
+            PointBalance pointBalance
     ) {
         this.seq = seq;
         this.ts = ts;
@@ -123,6 +125,7 @@ public class GotrPayload extends Payload {
         this.nextGameStart = nextGameStart;
         this.gameStarted = gameStarted;
         this.guardianEnergy = guardianEnergy;
+        this.pointBalance = pointBalance;
 
 
         this.activeGuardians = activeGuardians.isEmpty() ? null : activeGuardians.stream()
